@@ -29,7 +29,7 @@ int AWSAM_thread_run(struct subthread_data **ISOR_thread_data) {
     uint32_t running = 0;
 
     // Get output mutex
-    int mut_lock = pthread_mutex_trylock(AWSAM_mutex_out);
+    mut_lock = pthread_mutex_trylock(AWSAM_mutex_out);
     if (mut_lock != 0) {
         // Error getting mutex lock
         printf("Error getting AWSAM output mutex lock\r\n");
@@ -211,8 +211,8 @@ int main(void) {
 
     // Create NID data structures
     struct subthread_data AWSAM_thread_data;
-    AWSAM_thread_data.main_input_buffer = &AWSAM_buffer_in;
-    AWSAM_thread_data.main_output_buffer = &AWSAM_buffer_out;
+    AWSAM_thread_data.main_input_buffer = (uint32_t *)&AWSAM_buffer_in;
+    AWSAM_thread_data.main_output_buffer = (uint32_t *)&AWSAM_buffer_out;
     AWSAM_thread_data.main_input_mutex = &AWSAM_mutex_in;
     AWSAM_thread_data.main_output_mutex = &AWSAM_mutex_out;
 
