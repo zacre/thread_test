@@ -68,6 +68,7 @@ void *producer_fn(void *thread_data) {
     int produced = 0;
     struct subthread_data *threaddata = (struct subthread_data *)thread_data;
     uint8_t counter = 33;
+    uint32_t localbuffer = 0;
 
     while(running) {
         while(!produced) {
@@ -75,7 +76,7 @@ void *producer_fn(void *thread_data) {
             res = pthread_mutex_trylock(threaddata->main_input_mutex);
             if (res != 0) {
                 // Error getting mutex lock
-                printf("P: Error getting mutex lock\n");
+                printf("P: Error getting P->C mutex lock\n");
                 continue;
             }
             // put data in buffer
@@ -84,15 +85,36 @@ void *producer_fn(void *thread_data) {
             // release mutex
             res = pthread_mutex_unlock(threaddata->main_input_mutex);
             if (res != 0) {
-                printf("P: Error releasing mutex lock\r\n");
+                printf("P: Error releasing P->C mutex lock\r\n");
             }
         }
         while(produced) {
-            // TODO:
             // Then Producer waits until it gets an ACK from the Consusmer (by constantly getting the C->P buffer mutex lock and checking for an update, then releasing the lock, over and over again)
+            // get mutex
+            res = pthread_mutex_trylock(threaddata->main_output_mutex);
+            if (res != 0) {
+                // Error getting mutex lock
+                printf("P: Error getting C->P mutex lock\n");
+                continue;
+            }
+            // check for data in buffer
+            // if data is in buffer, copy locally
+            if (*(threaddata->main_output_buffer) != 0) {
+                localbuffer = *(threaddata->main_output_buffer);
+                *(threaddata->main_output_buffer) = 0;
+                produced = 0;
+            }
+            // release mutex
+            res = pthread_mutex_unlock(threaddata->main_output_mutex);
+            if (res != 0) {
+                printf("P: Error releasing C->P mutex lock\r\n");
+            }
             // The Producer should receive the ACK/NAK from the Consumer via the C->P buffer (because it was constantly checking), and will then generate the next piece of data
-            counter++;
-            produced = 0;
+            if (!produced) {
+                printf("Producer received ACK\n");
+                counter++;
+                nanosleep(&hundredmillisleep, NULL);
+            }
         }
     }
     // return
@@ -113,7 +135,7 @@ void *consumer_fn(void *thread_data) {
             res = pthread_mutex_trylock(threaddata->main_input_mutex);
             if (res != 0) {
                 // Error getting mutex lock
-                printf("C: Error getting mutex lock\n");
+                printf("C: Error getting P->C mutex lock\n");
                 continue;
             }
             // check for data in buffer
@@ -126,16 +148,12 @@ void *consumer_fn(void *thread_data) {
             // release mutex
             res = pthread_mutex_unlock(threaddata->main_input_mutex);
             if (res != 0) {
-                printf("C: Error releasing mutex lock\r\n");
+                printf("C: Error releasing P->C mutex lock\r\n");
             }
         }
         while(consumed) {
-            // TODO:
             // The Consumer compares the sent data to what it was expecting to receive (according to the algorithm)
             // Either way, the Consumer gets the C->P buffer mutex lock, puts an ACK in the buffer (if the data was what it was expecting), or a NAK (if the data was not what it was expecting), and then releases the C->P buffer mutex lock
-            // Then the Consumer goes back to constantly checking the P->C buffer
-            // if data was copied locally, print data
-
             // get mutex
             res = pthread_mutex_trylock(threaddata->main_output_mutex);
             if (res != 0) {
@@ -151,10 +169,11 @@ void *consumer_fn(void *thread_data) {
             if (res != 0) {
                 printf("C: Error releasing C->P mutex lock\r\n");
             }
-
+            // if data was copied locally, print data
             if (consumed == 0) {
                 printf("Data was %d\n", localbuffer);
             }
+            // Then the Consumer goes back to constantly checking the P->C buffer
         }
     }
     // return
