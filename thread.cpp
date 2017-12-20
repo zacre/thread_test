@@ -6,15 +6,13 @@
 #include "threadhelper.hpp"
 #include "thread.hpp"
 
-#define MUTEX_RETRIES 
-
 uint8_t counter_init = 3;
 
 const struct timespec millisleep = {0, 1000000}; // 1ms
 const struct timespec hundredmillisleep = {0, 100000000}; // 100ms
 
+// Producer thread
 int AWSAM_thread_run(struct subthread_data **ISOR_thread_data) {
-    // Producer
     // Make a 255-counter
     // Each upcount is a "produce"
     // The highest bits of the buffers are the "updated" flag (i.e. (&ISOR_thread_data)[0]->main_output_buffer & 0xFF000000)
@@ -105,8 +103,8 @@ int AWSAM_thread_run(struct subthread_data **ISOR_thread_data) {
     printf("AWSAM thread termination successful\r\n");
 }
 
+// Consumer thread
 int ISOR_thread_run(struct subthread_data **ISOR_thread_data) {
-    // Consumer thread
     pthread_mutex_t *AWSAM_mutex_in = ISOR_thread_data[0]->main_input_mutex;
     pthread_mutex_t *AWSAM_mutex_out = ISOR_thread_data[0]->main_output_mutex;
     uint32_t *AWSAM_buffer_in = ISOR_thread_data[0]->main_input_buffer;
