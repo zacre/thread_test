@@ -19,3 +19,5 @@ The Consumer compares the sent data to what it was expecting to receive (accordi
 Either way, the Consumer gets the C->P buffer mutex lock, puts an ACK in the buffer (if the data was what it was expecting), or a NAK (if the data was not what it was expecting), and then releases the C->P buffer mutex lock
 Then the Consumer goes back to constantly checking the P->C buffer
 The Producer should receive the ACK/NAK from the Consumer via the C->P buffer (because it was constantly checking), and will then generate the next piece of data
+
+compile with `g++ threadtest.cpp -o thread -lpthread`
