@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <cstdio>
 #include <ctime>
 #include <pthread.h>
@@ -7,11 +8,6 @@
 void *producer_fn(void *);
 void *consumer_fn(void *);
 
-struct mutex_and_buffer {
-    int *buffer_ptr;
-    pthread_mutex_t *mutex_ptr;
-};
-
 const struct timespec hundredmillisleep = {0, 100000000}; // 100ms
 
 int main(void) {
@@ -20,7 +16,7 @@ int main(void) {
 
     // main constructs the other 2 threads and all the shared data structures (buffers and mutexes)
     pthread_mutex_t mutex;
-    int buffer = 0;
+    uint32_t buffer = 0;
     pthread_t producer_thread;
     pthread_t consumer_thread;
 
@@ -32,9 +28,9 @@ int main(void) {
         return -1;
     }
 
-    struct mutex_and_buffer threaddata;
-    threaddata.buffer_ptr = &buffer;
-    threaddata.mutex_ptr = &mutex;
+    struct subthread_data threaddata;
+    threaddata.main_input_buffer = &buffer;
+    threaddata.main_input_mutex = &mutex;
 
     // create threads
     printf("Creating threads\n");
@@ -60,24 +56,24 @@ void *producer_fn(void *thread_data) {
     // producer is run as a thread, and produces the data to send to the consumer, as per the readme
     int res = 0;
     int produced = 0;
-    struct mutex_and_buffer *threaddata = (struct mutex_and_buffer *)thread_data;
+    struct subthread_data *threaddata = (struct subthread_data *)thread_data;
 
     // wait for some time
     nanosleep(&hundredmillisleep, NULL);
 
     while(!produced) {
         // get mutex
-        res = pthread_mutex_trylock(threaddata->mutex_ptr);
+        res = pthread_mutex_trylock(threaddata->main_input_mutex);
         if (res != 0) {
             // Error getting mutex lock
             printf("P: Error getting mutex lock\n");
             continue;
         }
         // put data in buffer
-        *(threaddata->buffer_ptr) = 33;
+        *(threaddata->main_input_buffer) = 42;
         produced = 1;
         // release mutex
-        res = pthread_mutex_unlock(threaddata->mutex_ptr);
+        res = pthread_mutex_unlock(threaddata->main_input_mutex);
         if (res != 0) {
             printf("P: Error releasing mutex lock\r\n");
         }
@@ -90,12 +86,12 @@ void *consumer_fn(void *thread_data) {
     // consumer is run as a thread, and consumes the data sent to it by the producer thread
     int res = 0;
     int consumed = 0;
-    struct mutex_and_buffer *threaddata = (struct mutex_and_buffer *)thread_data;
-    int localbuffer = 0;
+    struct subthread_data *threaddata = (struct subthread_data *)thread_data;
+    uint32_t localbuffer = 0;
 
     while(!consumed) {
         // get mutex
-        res = pthread_mutex_trylock(threaddata->mutex_ptr);
+        res = pthread_mutex_trylock(threaddata->main_input_mutex);
         if (res != 0) {
             // Error getting mutex lock
             printf("C: Error getting mutex lock\n");
@@ -103,12 +99,12 @@ void *consumer_fn(void *thread_data) {
         }
         // check for data in buffer
         // if data is in buffer, copy locally
-        if (*(threaddata->buffer_ptr) != 0) {
-            localbuffer = *(threaddata->buffer_ptr);
+        if (*(threaddata->main_input_buffer) != 0) {
+            localbuffer = *(threaddata->main_input_buffer);
             consumed = 1;
         }
         // release mutex
-        res = pthread_mutex_unlock(threaddata->mutex_ptr);
+        res = pthread_mutex_unlock(threaddata->main_input_mutex);
         if (res != 0) {
             printf("C: Error releasing mutex lock\r\n");
         }
